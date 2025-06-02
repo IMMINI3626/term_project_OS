@@ -29,7 +29,7 @@ if __name__ == "__main__":
         "Priority_NON": priority_non.Priority_non_Scheduler,
         "Priority_Pre": priority_pre.Priority_Scheduler,
         "RR": lambda p: rr.RR_Scheduler(p, quantum),    # RR은 타임 퀀텀 파라미터를 함께 전달하기 위해 람다 함수 사용
-        "SRT": srt.SRT_Scheduler,
+        "SRT": lambda p: srt.SRT_Scheduler(p, quantum),
         "HRN": hrn.HRN_Scheduler,
         "SRT_SJF": srt_sjf.SRT_SJF_Scheduler
     }

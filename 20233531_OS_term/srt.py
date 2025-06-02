@@ -1,41 +1,66 @@
 from typing import List, Tuple
 from base import Process
+from collections import deque
 
-# SRT(Shortest Remaining Time) 스케줄러
+# SRT(Shortest Remaining Time) 스케줄러 - 타임슬라이스 + 진입 순서 고려
 def SRT_Scheduler(processes: List[Process], time_slice: int = 10) -> Tuple[List[Process], List[Tuple[str, int, int]]]:
     time = 0
     completed = 0
     n = len(processes)
     executions = []
+    queue = deque()
+    arrival_index = 0
+    process_order = 0
+    process_in_queue = {}
+
+    # 도착 시간 기준 정렬
+    processes.sort(key=lambda p: p.arrival_time)
 
     while completed < n:
-        available = [p for p in processes if not p.completed and p.arrival_time <= time]
+        # 현재 시간까지 도착한 프로세스 큐에 추가
+        while arrival_index < n and processes[arrival_index].arrival_time <= time:
+            proc = processes[arrival_index]
+            process_in_queue[proc.pid] = process_order
+            process_order += 1
+            queue.append(proc)
+            arrival_index += 1
 
-        if not available:
+        ready_list = [p for p in queue if not p.completed]
+
+        if not ready_list:
             executions.append(("IDLE", time, 1))
             time += 1
             continue
 
-        available.sort(key=lambda p: (p.remaining_time, p.arrival_time))
-        p = available[0]
+        # 정렬: 남은 시간 → 대기 큐 진입 순서
+        ready_list.sort(key=lambda p: (p.remaining_time, process_in_queue[p.pid]))
+        current = ready_list[0]
+        queue.remove(current)
 
-        if p.start_time == -1:
-            p.start_time = time
-            p.response_time = time - p.arrival_time
+        if current.start_time == -1:
+            current.start_time = time
+            current.response_time = time - current.arrival_time
 
-        run_time = min(time_slice, p.remaining_time)  # 실행 시간은 퀀텀 또는 남은 시간 중 작은 값
-        executions.append((p.pid, time, run_time))    # 실행 기록 저장
+        exec_time = min(time_slice, current.remaining_time)
+        executions.append((current.pid, time, exec_time))
+        time += exec_time
+        current.remaining_time -= exec_time
 
-        time += run_time
-        p.remaining_time -= run_time
-        if p.remaining_time < 0:
-            p.remaining_time = 0
+        # 실행 도중 새로 들어온 프로세스 추가
+        while arrival_index < n and processes[arrival_index].arrival_time <= time:
+            proc = processes[arrival_index]
+            process_in_queue[proc.pid] = process_order
+            process_order += 1
+            queue.append(proc)
+            arrival_index += 1
 
-        if p.remaining_time == 0:
-            p.completed = True
-            p.completion_time = time
-            p.turnaround_time = p.completion_time - p.arrival_time
-            p.waiting_time = p.turnaround_time - p.run_time
+        if current.remaining_time > 0:
+            queue.append(current)
+        else:
+            current.completed = True
+            current.completion_time = time
+            current.turnaround_time = time - current.arrival_time
+            current.waiting_time = current.turnaround_time - current.run_time
             completed += 1
 
     return processes, executions
